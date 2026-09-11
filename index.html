@@ -960,7 +960,7 @@ const HASHES_AUTORIZADOS = new Set([
 ]);
 
 // ═══════════════════════════════════════════════════════════════
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTWYfn65L8310du-9uJ-7QfOjAobd0K0xWQiBTUeS4b8FGTGs8WymSfrQae1cXc9d9rwHWkJYUI8h37/pubhtml";
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTWYfn65L8310du-9uJ-7QfOjAobd0K0xWQiBTUeS4b8FGTGs8WymSfrQae1cXc9d9rwHWkJYUI8h37/pub?output=csv";
 
 // ─── ABAS DA PLANILHA ────────────────────────────────────────────
 // A aba GERAL já usa o link CSV existente no dashboard.
@@ -1643,6 +1643,32 @@ function atualizarAbaPlanilhaAtual() {
   carregarCSV(url, abaPlanilhaAtual);
 }
 
+function normalizarCabecalhosCSV(dados) {
+  if (!Array.isArray(dados)) return [];
+  return dados.map(linha => {
+    const nova = {};
+    Object.entries(linha || {}).forEach(([chave, valor]) => {
+      const chaveLimpa = String(chave ?? '')
+        .replace(/^\uFEFF/, '')
+        .replace(/\u00A0/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+      nova[chaveLimpa] = typeof valor === 'string' ? valor.trim() : valor;
+    });
+    return nova;
+  });
+}
+
+function validarEstruturaCSV(dados) {
+  if (!dados || !dados.length) return { ok: false, motivo: 'nenhuma linha encontrada' };
+  const cabecalhos = Object.keys(dados[0]);
+  const normalizados = cabecalhos.map(h => normalizarTexto(h));
+  const esperados = [COL.DATA, COL.PREFIXO, COL.CHAPA, COL.DESCRICAO, COL.TIPO_DE_PEDIDO]
+    .map(h => normalizarTexto(h));
+  const encontrados = esperados.filter(h => normalizados.includes(h)).length;
+  return { ok: encontrados >= 2, cabecalhos, encontrados };
+}
+
 function carregarCSV(url, nomeAba = abaPlanilhaAtual) {
   if (!url) {
     abrirModal();
@@ -1651,26 +1677,38 @@ function carregarCSV(url, nomeAba = abaPlanilhaAtual) {
 
   document.getElementById('loading-overlay').classList.remove('hidden');
   const separador = url.includes('?') ? '&' : '?';
-  const urlAtualizada = url + separador + 'nocache=' + new Date().getTime();
+  const urlAtualizada = url + separador + 'nocache=' + Date.now();
 
   Papa.parse(urlAtualizada, {
-    download: true, 
-    header: true, 
+    download: true,
+    header: true,
     skipEmptyLines: true,
     complete: (res) => {
       document.getElementById('loading-overlay').classList.add('hidden');
-      if (res.data && res.data.length > 0) {
-        inicializarDados(res.data);
-        document.getElementById('last-update').textContent = 'Última atualização: ' + new Date().toLocaleTimeString('pt-BR') + ' • Aba: ' + nomeAba;
+
+      const dados = normalizarCabecalhosCSV(res.data || []);
+      const validacao = validarEstruturaCSV(dados);
+
+      if (res.errors && res.errors.length) {
+        console.warn('Avisos do CSV:', res.errors);
+      }
+
+      if (validacao.ok) {
+        inicializarDados(dados);
+        document.getElementById('last-update').textContent =
+          'Última atualização: ' + new Date().toLocaleTimeString('pt-BR') + ' • Aba: ' + nomeAba + ' • ' + dados.length + ' registros';
+        console.log('CSV carregado:', nomeAba, dados.length, validacao.cabecalhos);
       } else {
-        alert('Não foi possível carregar a aba "' + nomeAba + '".');
-        inicializarDados(DADOS_EXEMPLO);
+        console.error('CSV recebido, mas os cabeçalhos não correspondem ao dashboard:', validacao.cabecalhos);
+        alert('A aba "' + nomeAba + '" foi acessada, mas os cabeçalhos não correspondem ao dashboard.\n\nCabeçalhos encontrados: ' + validacao.cabecalhos.join(' | '));
+        inicializarDados([]);
       }
     },
-    error: () => {
+    error: (erro) => {
       document.getElementById('loading-overlay').classList.add('hidden');
-      alert('Erro ao conectar com a aba "' + nomeAba + '". Verifique se a publicação CSV está acessível.');
-      inicializarDados(DADOS_EXEMPLO);
+      console.error('Erro ao carregar CSV:', erro, url);
+      alert('Erro ao conectar com a aba "' + nomeAba + '". Verifique se ela está publicada como CSV e acessível.');
+      inicializarDados([]);
     }
   });
 }
