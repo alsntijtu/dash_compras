@@ -971,8 +971,10 @@ const HASHES_AUTORIZADOS = new Set([
 //
 // Se uma aba estiver sem URL/GID, clique nela e use o botão "Planilha"
 // para colar o link CSV daquela aba. A configuração fica salva no navegador.
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTWYfn65L8310du-9uJ-7QfOjAobd0K0xWQiBTUeS4b8FGTGs8WymSfrQae1cXc9d9rwHWkJYUI8h37/pub?output=csv";
+
 const ABAS_PLANILHA_PADRAO = [
-  { nome: "GERAL", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTWYfn65L8310du-9uJ-7QfOjAobd0K0xWQiBTUeS4b8FGTGs8WymSfrQae1cXc9d9rwHWkJYUI8h37/pub?output=csv" },
+  { nome: "GERAL", gid:0, url: SHEET_URL },
   { nome: "SETEMBRO-26", gid: "825575751", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTWYfn65L8310du-9uJ-7QfOjAobd0K0xWQiBTUeS4b8FGTGs8WymSfrQae1cXc9d9rwHWkJYUI8h37/pub?gid=825575751&single=true&output=csv" }
 ];
 
